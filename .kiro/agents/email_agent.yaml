@@ -1,0 +1,182 @@
+name: email_agent
+description: AI agent for processing and triaging support emails
+version: "1.0.0"
+
+triggers:
+  - type: email_received
+    source: gmail
+    filters:
+      - to: "support@company.com"
+      - subject_contains: ["help", "issue", "problem", "bug", "error"]
+
+capabilities:
+  - email_processing
+  - ai_analysis
+  - knowledge_search
+  - ticket_creation
+  - automated_response
+
+workflow:
+  steps:
+    - name: extract_email_content
+      description: Extract and clean email content
+      action: parse_email
+      inputs:
+        - email_body
+        - sender_email
+        - subject
+        - thread_id
+      outputs:
+        - cleaned_content
+        - customer_info
+        - issue_category
+
+    - name: analyze_with_ai
+      description: Use Bedrock to analyze the issue
+      action: mcp_call
+      endpoint: "/mcp/ai_analyze"
+      inputs:
+        - issue_text: "{{cleaned_content}}"
+        - customer_email: "{{customer_info.email}}"
+      outputs:
+        - issue_summary
+        - urgency_level
+        - suggested_category
+        - key_points
+
+    - name: search_knowledge_base
+      description: Search for existing solutions
+      action: mcp_call
+      endpoint: "/mcp/kb_lookup"
+      inputs:
+        - query: "{{issue_summary}}"
+        - threshold: 0.8
+        - limit: 5
+      outputs:
+        - solutions_found
+        - confidence_scores
+        - solution_content
+
+    - name: decide_action
+      description: Determine if we can auto-resolve or need to create ticket
+      condition: "{{solutions_found.length > 0 && confidence_scores[0] > 0.85}}"
+      branches:
+        auto_resolve:
+          - name: send_solution_email
+            action: mcp_call
+            endpoint: "/mcp/send_email"
+            inputs:
+              - to: "{{customer_info.email}}"
+              - subject: "Re: {{subject}}"
+              - body: "{{solution_content[0]}}"
+              - thread_id: "{{thread_id}}"
+              - template: "solution_response"
+            outputs:
+              - email_sent_status
+
+          - name: log_resolution
+            action: mcp_call
+            endpoint: "/mcp/log_memory"
+            inputs:
+              - interaction_type: "email_auto_resolved"
+              - customer_email: "{{customer_info.email}}"
+              - issue_description: "{{cleaned_content}}"
+              - resolution_type: "knowledge_base_match"
+              - ai_analysis: "{{issue_summary}}"
+              - solution_provided: "{{solution_content[0]}}"
+
+        create_ticket:
+          - name: create_support_ticket
+            action: mcp_call
+            endpoint: "/mcp/create_ticket"
+            inputs:
+              - title: "{{issue_summary}}"
+              - description: "{{cleaned_content}}"
+              - priority: "{{urgency_level}}"
+              - category: "{{suggested_category}}"
+              - customer_email: "{{customer_info.email}}"
+              - source: "email"
+            outputs:
+              - ticket_id
+              - ticket_url
+
+          - name: send_ticket_confirmation
+            action: mcp_call
+            endpoint: "/mcp/send_email"
+            inputs:
+              - to: "{{customer_info.email}}"
+              - subject: "Re: {{subject}} - Ticket #{{ticket_id}}"
+              - body: "We've created ticket #{{ticket_id}} for your issue. Our team will respond within 24 hours."
+              - thread_id: "{{thread_id}}"
+              - template: "ticket_created"
+            outputs:
+              - confirmation_sent
+
+          - name: log_ticket_creation
+            action: mcp_call
+            endpoint: "/mcp/log_memory"
+            inputs:
+              - interaction_type: "email_ticket_created"
+              - customer_email: "{{customer_info.email}}"
+              - issue_description: "{{cleaned_content}}"
+              - resolution_type: "ticket_created"
+              - ticket_id: "{{ticket_id}}"
+              - ai_analysis: "{{issue_summary}}"
+
+    - name: schedule_followup
+      description: Schedule follow-up if needed
+      condition: "{{urgency_level == 'high'}}"
+      action: mcp_call
+      endpoint: "/mcp/schedule_meeting"
+      inputs:
+        - customer_email: "{{customer_info.email}}"
+        - meeting_type: "support_followup"
+        - duration_minutes: 30
+        - preferred_times: "business_hours"
+        - ticket_id: "{{ticket_id}}"
+
+error_handling:
+  - type: ai_service_error
+    action: fallback_to_manual
+    notification: "AI analysis failed, creating manual ticket"
+  
+  - type: knowledge_search_error
+    action: create_ticket_anyway
+    notification: "Knowledge base search failed, proceeding with ticket creation"
+  
+  - type: email_send_error
+    action: retry_with_backoff
+    max_retries: 3
+    notification: "Failed to send email response"
+
+configuration:
+  mcp_service_url: "http://localhost:8000"
+  timeout_seconds: 30
+  max_retries: 3
+  log_level: "INFO"
+  
+templates:
+  solution_response: |
+    Hello {{customer_name}},
+    
+    Thank you for contacting support. Based on your inquiry about "{{issue_summary}}", I found a solution that should help:
+    
+    {{solution_content}}
+    
+    If this doesn't resolve your issue, please reply to this email and we'll create a support ticket for further assistance.
+    
+    Best regards,
+    SuperTickets.AI Support Team
+  
+  ticket_created: |
+    Hello {{customer_name}},
+    
+    Thank you for contacting support. We've created ticket #{{ticket_id}} for your inquiry about "{{issue_summary}}".
+    
+    Our support team will review your case and respond within 24 hours. You can track the status of your ticket at: {{ticket_url}}
+    
+    If you have any additional information that might help us resolve this faster, please reply to this email.
+    
+    Best regards,
+    SuperTickets.AI Support Team
+    Ticket #{{ticket_id}}

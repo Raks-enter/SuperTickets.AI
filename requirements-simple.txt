@@ -1,0 +1,37 @@
+# Essential dependencies for SuperTickets.AI
+# Use this file if the main requirements.txt has issues
+
+# FastAPI and server
+fastapi>=0.100.0
+uvicorn[standard]>=0.22.0
+pydantic>=2.0.0
+
+# Database
+supabase>=2.20.0
+psycopg2-binary>=2.9.0
+
+# AI and cloud services
+boto3>=1.28.0
+openai>=1.0.0
+
+# Google APIs
+google-api-python-client>=2.70.0
+google-auth>=2.16.0
+google-auth-oauthlib>=1.0.0
+
+# HTTP and utilities
+httpx>=0.24.0
+requests>=2.28.0
+python-dotenv>=1.0.0
+python-multipart>=0.0.6
+
+# Email validation
+email-validator>=2.0.0
+
+# Testing (optional)
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+
+# Development tools (optional)
+black>=23.0.0
+flake8>=6.0.0

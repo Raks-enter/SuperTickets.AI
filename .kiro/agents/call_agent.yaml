@@ -1,0 +1,291 @@
+name: call_agent
+description: AI agent for processing and triaging call transcriptions
+version: "1.0.0"
+
+triggers:
+  - type: transcription_received
+    source: call_system
+    filters:
+      - contains_keywords: ["support", "help", "issue", "problem", "technical"]
+      - duration_minutes: ">= 2"
+
+capabilities:
+  - transcription_processing
+  - sentiment_analysis
+  - ai_analysis
+  - knowledge_search
+  - ticket_creation
+  - callback_scheduling
+
+workflow:
+  steps:
+    - name: process_transcription
+      description: Clean and structure call transcription
+      action: parse_transcription
+      inputs:
+        - transcription_text
+        - caller_phone
+        - call_duration
+        - call_timestamp
+        - agent_name
+      outputs:
+        - cleaned_transcript
+        - caller_info
+        - call_metadata
+        - conversation_segments
+
+    - name: extract_key_information
+      description: Extract customer details and issue from transcript
+      action: mcp_call
+      endpoint: "/mcp/extract_call_info"
+      inputs:
+        - transcript: "{{cleaned_transcript}}"
+        - caller_phone: "{{caller_info.phone}}"
+      outputs:
+        - customer_email
+        - customer_name
+        - issue_description
+        - urgency_indicators
+        - resolution_attempted
+
+    - name: analyze_sentiment_and_urgency
+      description: Analyze call sentiment and determine urgency
+      action: mcp_call
+      endpoint: "/mcp/analyze_call_sentiment"
+      inputs:
+        - transcript: "{{cleaned_transcript}}"
+        - conversation_segments: "{{conversation_segments}}"
+      outputs:
+        - sentiment_score
+        - frustration_level
+        - urgency_level
+        - escalation_needed
+
+    - name: ai_issue_analysis
+      description: Use Bedrock to analyze the technical issue
+      action: mcp_call
+      endpoint: "/mcp/ai_analyze"
+      inputs:
+        - issue_text: "{{issue_description}}"
+        - context: "phone_call"
+        - customer_info: "{{caller_info}}"
+        - sentiment: "{{sentiment_score}}"
+      outputs:
+        - issue_summary
+        - technical_category
+        - complexity_level
+        - suggested_solutions
+
+    - name: search_knowledge_base
+      description: Search for solutions based on call content
+      action: mcp_call
+      endpoint: "/mcp/kb_lookup"
+      inputs:
+        - query: "{{issue_summary}}"
+        - threshold: 0.75
+        - limit: 3
+        - context: "call_support"
+      outputs:
+        - solutions_found
+        - confidence_scores
+        - solution_steps
+
+    - name: determine_next_action
+      description: Decide on follow-up action based on call analysis
+      condition: "{{escalation_needed || urgency_level == 'critical'}}"
+      branches:
+        immediate_escalation:
+          - name: create_priority_ticket
+            action: mcp_call
+            endpoint: "/mcp/create_ticket"
+            inputs:
+              - title: "URGENT: {{issue_summary}}"
+              - description: |
+                  Call Transcript Summary:
+                  Customer: {{customer_name}} ({{customer_phone}})
+                  Issue: {{issue_description}}
+                  
+                  Sentiment Analysis:
+                  - Frustration Level: {{frustration_level}}
+                  - Urgency: {{urgency_level}}
+                  
+                  Full Transcript:
+                  {{cleaned_transcript}}
+              - priority: "critical"
+              - category: "{{technical_category}}"
+              - customer_email: "{{customer_email}}"
+              - customer_phone: "{{caller_phone}}"
+              - source: "phone_call"
+              - escalate_immediately: true
+            outputs:
+              - urgent_ticket_id
+              - assigned_agent
+
+          - name: schedule_immediate_callback
+            action: mcp_call
+            endpoint: "/mcp/schedule_callback"
+            inputs:
+              - customer_phone: "{{caller_phone}}"
+              - customer_email: "{{customer_email}}"
+              - priority: "immediate"
+              - ticket_id: "{{urgent_ticket_id}}"
+              - callback_reason: "urgent_issue_followup"
+              - preferred_time: "within_2_hours"
+
+        standard_processing:
+          - name: evaluate_solution_confidence
+            condition: "{{solutions_found.length > 0 && confidence_scores[0] > 0.8}}"
+            branches:
+              send_solution_email:
+                - name: email_solution_to_customer
+                  action: mcp_call
+                  endpoint: "/mcp/send_email"
+                  inputs:
+                    - to: "{{customer_email}}"
+                    - subject: "Follow-up: Solution for your call about {{issue_summary}}"
+                    - body: |
+                        Hello {{customer_name}},
+                        
+                        Thank you for calling our support line. Based on our conversation about {{issue_summary}}, here's the solution:
+                        
+                        {{solution_steps[0]}}
+                        
+                        If you need further assistance, please don't hesitate to call us back or reply to this email.
+                    - template: "call_followup_solution"
+                  outputs:
+                    - solution_email_sent
+
+              create_standard_ticket:
+                - name: create_support_ticket
+                  action: mcp_call
+                  endpoint: "/mcp/create_ticket"
+                  inputs:
+                    - title: "{{issue_summary}}"
+                    - description: |
+                        Call Summary:
+                        Customer: {{customer_name}} ({{customer_phone}})
+                        Call Duration: {{call_duration}} minutes
+                        Issue: {{issue_description}}
+                        
+                        Agent Notes:
+                        - Sentiment: {{sentiment_score}}
+                        - Complexity: {{complexity_level}}
+                        - Resolution Attempted: {{resolution_attempted}}
+                        
+                        Transcript:
+                        {{cleaned_transcript}}
+                    - priority: "{{urgency_level}}"
+                    - category: "{{technical_category}}"
+                    - customer_email: "{{customer_email}}"
+                    - customer_phone: "{{caller_phone}}"
+                    - source: "phone_call"
+                  outputs:
+                    - ticket_id
+                    - estimated_resolution_time
+
+                - name: send_ticket_confirmation_email
+                  action: mcp_call
+                  endpoint: "/mcp/send_email"
+                  inputs:
+                    - to: "{{customer_email}}"
+                    - subject: "Support Ticket Created: #{{ticket_id}} - {{issue_summary}}"
+                    - body: |
+                        Hello {{customer_name}},
+                        
+                        Thank you for calling our support line. We've created ticket #{{ticket_id}} for the issue you discussed.
+                        
+                        Issue Summary: {{issue_summary}}
+                        Estimated Resolution: {{estimated_resolution_time}}
+                        
+                        Our team will work on this and update you via email. You can also call us back referencing ticket #{{ticket_id}}.
+                    - template: "call_ticket_confirmation"
+
+    - name: schedule_proactive_followup
+      description: Schedule follow-up based on issue complexity
+      condition: "{{complexity_level == 'high' || sentiment_score < 0.3}}"
+      action: mcp_call
+      endpoint: "/mcp/schedule_callback"
+      inputs:
+        - customer_phone: "{{caller_phone}}"
+        - customer_email: "{{customer_email}}"
+        - callback_reason: "proactive_followup"
+        - ticket_id: "{{ticket_id}}"
+        - preferred_time: "24_hours"
+        - callback_type: "satisfaction_check"
+
+    - name: log_call_interaction
+      description: Log complete call interaction for future reference
+      action: mcp_call
+      endpoint: "/mcp/log_memory"
+      inputs:
+        - interaction_type: "phone_call_processed"
+        - customer_phone: "{{caller_phone}}"
+        - customer_email: "{{customer_email}}"
+        - call_duration: "{{call_duration}}"
+        - issue_description: "{{issue_description}}"
+        - sentiment_analysis: 
+            score: "{{sentiment_score}}"
+            frustration_level: "{{frustration_level}}"
+            urgency: "{{urgency_level}}"
+        - resolution_type: "{{resolution_type}}"
+        - ticket_id: "{{ticket_id}}"
+        - ai_analysis: "{{issue_summary}}"
+        - transcript_summary: "{{cleaned_transcript}}"
+
+error_handling:
+  - type: transcription_processing_error
+    action: manual_review_required
+    notification: "Transcription could not be processed automatically"
+  
+  - type: customer_identification_error
+    action: create_anonymous_ticket
+    notification: "Could not identify customer, creating anonymous ticket"
+  
+  - type: ai_analysis_error
+    action: fallback_to_manual_categorization
+    notification: "AI analysis failed, using manual categorization"
+
+configuration:
+  mcp_service_url: "http://localhost:8000"
+  timeout_seconds: 45
+  max_retries: 3
+  log_level: "INFO"
+  sentiment_threshold: 0.3
+  urgency_keywords: ["urgent", "critical", "down", "broken", "emergency"]
+
+templates:
+  call_followup_solution: |
+    Hello {{customer_name}},
+    
+    Thank you for calling our support line today. I wanted to follow up on your call about {{issue_summary}}.
+    
+    Based on our conversation, here's the solution that should resolve your issue:
+    
+    {{solution_content}}
+    
+    Please try these steps and let us know if you need any clarification. If the issue persists, don't hesitate to call us back at [phone_number] or reply to this email.
+    
+    We appreciate your business and hope this resolves your concern quickly.
+    
+    Best regards,
+    {{agent_name}}
+    SuperTickets.AI Support Team
+  
+  call_ticket_confirmation: |
+    Hello {{customer_name}},
+    
+    Thank you for calling our support line today. This email confirms that we've created support ticket #{{ticket_id}} for the issue you discussed.
+    
+    Issue Summary: {{issue_summary}}
+    Priority Level: {{priority}}
+    Estimated Resolution Time: {{estimated_resolution_time}}
+    
+    Our technical team will review your case and provide updates via email. If you need to reference this case in future calls, please mention ticket #{{ticket_id}}.
+    
+    You can also track your ticket status online at: [ticket_portal_url]
+    
+    Thank you for your patience as we work to resolve this matter.
+    
+    Best regards,
+    SuperTickets.AI Support Team
+    Ticket #{{ticket_id}}

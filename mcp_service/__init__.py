@@ -1,0 +1,1 @@
+# SuperTickets.AI MCP Service Package

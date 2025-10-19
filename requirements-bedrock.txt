@@ -1,0 +1,16 @@
+# AWS Bedrock AI Requirements
+boto3>=1.34.0
+botocore>=1.34.0
+
+# Existing requirements
+fastapi>=0.104.1
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+python-multipart>=0.0.6
+supabase>=2.0.0
+google-auth>=2.23.0
+google-auth-oauthlib>=1.1.0
+google-auth-httplib2>=0.1.1
+google-api-python-client>=2.108.0
+python-dotenv>=1.0.0
+email-validator>=2.1.0

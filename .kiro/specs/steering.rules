@@ -1,0 +1,164 @@
+# SuperTickets.AI - Steering Rules
+
+## Development Standards
+
+### Code Quality
+- Follow PEP 8 for Python code formatting
+- Use type hints for all function parameters and returns
+- Maintain test coverage above 80%
+- Document all public functions with docstrings
+- Use async/await for all I/O operations
+
+### Error Handling
+- Always use try-catch blocks for external API calls
+- Log errors with structured logging (JSON format)
+- Implement exponential backoff for retries
+- Provide meaningful error messages to users
+- Never expose internal errors to external clients
+
+### Security Practices
+- Validate all input data using Pydantic models
+- Sanitize user content before processing
+- Use environment variables for all secrets
+- Implement rate limiting on all endpoints
+- Log security events for audit trails
+
+## AI Integration Guidelines
+
+### Bedrock Usage
+- Always set max_tokens to prevent runaway costs
+- Use temperature=0.1 for consistent responses
+- Implement fallback mechanisms if AI service fails
+- Cache AI responses when appropriate
+- Monitor token usage and costs
+
+### Vector Search
+- Use cosine similarity with minimum threshold 0.8
+- Limit search results to top 5 matches
+- Implement semantic chunking for large documents
+- Update embeddings when knowledge base changes
+- Monitor search performance and accuracy
+
+## API Integration Standards
+
+### SuperOps GraphQL
+- Use prepared queries to prevent injection
+- Implement proper error handling for GraphQL responses
+- Cache schema definitions locally
+- Batch operations when possible
+- Monitor API rate limits
+
+### Gmail API
+- Use batch requests for multiple operations
+- Implement proper OAuth token refresh
+- Handle quota exceeded errors gracefully
+- Sanitize email content before sending
+- Track email delivery status
+
+### Google Calendar
+- Check availability before scheduling
+- Send calendar invitations with proper details
+- Handle timezone conversions correctly
+- Implement conflict resolution
+- Provide meeting join links when applicable
+
+## Database Operations
+
+### Supabase Best Practices
+- Use connection pooling for better performance
+- Implement proper indexing for vector searches
+- Use transactions for multi-table operations
+- Monitor query performance and optimize slow queries
+- Implement proper backup and recovery procedures
+
+### Data Management
+- Archive old interactions after 1 year
+- Implement data retention policies
+- Use soft deletes for important records
+- Maintain data consistency across operations
+- Regular cleanup of temporary data
+
+## Monitoring and Logging
+
+### Structured Logging
+```python
+{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "level": "INFO",
+  "service": "supertickets-ai",
+  "operation": "kb_lookup",
+  "customer_email": "[email]",
+  "query": "login issues",
+  "results_found": 3,
+  "response_time_ms": 1250
+}
+```
+
+### Metrics Collection
+- Track response times for all operations
+- Monitor AI model usage and costs
+- Count successful vs failed operations
+- Track customer satisfaction scores
+- Monitor system resource usage
+
+### Alerting Rules
+- Alert on error rate > 5% in 5 minutes
+- Alert on response time > 10 seconds
+- Alert on AI service failures
+- Alert on database connection issues
+- Alert on authentication failures
+
+## Testing Requirements
+
+### Unit Tests
+- Test all utility functions independently
+- Mock external API calls in tests
+- Test error conditions and edge cases
+- Validate input/output schemas
+- Test async operations properly
+
+### Integration Tests
+- Test complete workflows end-to-end
+- Validate external API integrations
+- Test database operations with real data
+- Verify email sending functionality
+- Test calendar scheduling flows
+
+### Performance Tests
+- Load test with concurrent requests
+- Test with large knowledge base
+- Validate memory usage under load
+- Test API rate limit handling
+- Benchmark vector search performance
+
+## Deployment Guidelines
+
+### Environment Management
+- Use separate environments for dev/staging/prod
+- Implement proper CI/CD pipelines
+- Use infrastructure as code (Terraform/CDK)
+- Implement blue-green deployments
+- Monitor deployment success rates
+
+### Configuration Management
+- Use environment-specific config files
+- Implement secret rotation procedures
+- Validate configuration on startup
+- Use feature flags for new functionality
+- Document all configuration options
+
+## Customer Experience
+
+### Response Quality
+- Ensure AI responses are helpful and accurate
+- Provide clear next steps in all communications
+- Use professional and friendly tone
+- Include relevant context in responses
+- Offer escalation options when needed
+
+### Performance Standards
+- Respond to emails within 5 minutes during business hours
+- Provide status updates for complex issues
+- Ensure ticket creation includes all necessary details
+- Schedule meetings within customer's timezone
+- Follow up on unresolved issues within 24 hours
