@@ -3,7 +3,7 @@ import './App.css';
 import EmailInbox from './pages/EmailInbox';
 import EmailAutomation from './pages/EmailAutomation';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = process.env.REACT_APP_API_URL || 'http://18.117.190.231:8000';
 
 
 

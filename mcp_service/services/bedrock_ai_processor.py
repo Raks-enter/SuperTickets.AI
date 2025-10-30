@@ -31,13 +31,16 @@ class BedrockAIProcessor:
     
     def __init__(self):
         try:
-            # Initialize Bedrock client
+            # Initialize Bedrock client - always use us-east-1 for Claude 3
+            # regardless of where ECS is running
+            import os
+            self.bedrock_region = os.getenv('BEDROCK_REGION', 'us-east-1')  # Claude 3 region
             self.bedrock = boto3.client(
                 'bedrock-runtime',
-                region_name='us-east-1'  # Claude 3 available regions
+                region_name=self.bedrock_region
             )
             self.model_id = 'anthropic.claude-3-sonnet-20240229-v1:0'
-            logger.info("AWS Bedrock AI processor initialized")
+            logger.info(f"AWS Bedrock AI processor initialized (region: {self.bedrock_region})")
         except Exception as e:
             logger.error(f"Failed to initialize Bedrock client: {e}")
             self.bedrock = None

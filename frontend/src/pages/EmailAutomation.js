@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = process.env.REACT_APP_API_URL || 'http://18.117.190.231:8000';
 
 function EmailAutomation() {
   const [automationStatus, setAutomationStatus] = useState(null);
@@ -49,10 +49,10 @@ function EmailAutomation() {
   return (
     <div className="panel">
       <div className="automation-header">
-        <h2>🤖 Email Automation Control</h2>
-        <div className="status-indicator">
-          <div className={`status-dot ${automationStatus?.is_running ? 'running' : 'stopped'}`}></div>
-          <span>Status: {automationStatus?.is_running ? 'Running' : 'Stopped'}</span>
+        <h2>🤖 Email Automation Dashboard</h2>
+        <div className="connection-status">
+          <div className={`status-dot ${automationStatus?.gmail_connected ? 'connected' : 'disconnected'}`}></div>
+          <span>Gmail: {automationStatus?.gmail_connected ? 'Connected' : 'Not Connected'}</span>
         </div>
       </div>
 
@@ -133,21 +133,25 @@ function EmailAutomation() {
           <h3>Automation Statistics (Last 24 Hours)</h3>
           
           <div className="stats-overview">
-            <div className="stat-card">
+            <div className="stat-card queries">
               <div className="stat-number">{automationStats.total_processed}</div>
-              <div className="stat-label">Emails Processed</div>
+              <div className="stat-label">Email Queries</div>
+              <div className="stat-trend">Total processed</div>
             </div>
-            <div className="stat-card">
+            <div className="stat-card solutions">
+              <div className="stat-number">{automationStats.automated_responses}</div>
+              <div className="stat-label">Solutions Sent</div>
+              <div className="stat-trend">Auto-resolved</div>
+            </div>
+            <div className="stat-card categories">
+              <div className="stat-number">{Object.keys(automationStats.categories || {}).length}</div>
+              <div className="stat-label">Categories</div>
+              <div className="stat-trend">Classified</div>
+            </div>
+            <div className="stat-card tickets">
               <div className="stat-number">{automationStats.tickets_created}</div>
               <div className="stat-label">Tickets Created</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-number">{automationStats.automated_responses}</div>
-              <div className="stat-label">Auto Responses</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-number">{automationStats.response_rate}</div>
-              <div className="stat-label">Response Rate</div>
+              <div className="stat-trend">Human needed</div>
             </div>
           </div>
 
