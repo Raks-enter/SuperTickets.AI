@@ -449,8 +449,9 @@ def _calculate_uptime():
     if hours > 0:
         return f"{hours}h {minutes}m"
     else:
-        return f"{minutes}m"@
-router.get("/ai-model-info")
+        return f"{minutes}m"
+
+@router.get("/ai-model-info")
 async def get_ai_model_info():
     """Get AI model information"""
     try:
